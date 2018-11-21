@@ -628,6 +628,17 @@ func (ks *KeyStore) GetPublicKey(a accounts.Account) (string, error) {
 	return pub, nil
 }
 
+//GetPrivateKey get account's private key and random key from keystore
+func (ks *KeyStore) GetPrivateKey(a accounts.Account, pass string) ([]byte, []byte, error) {
+	_, key, err := ks.getDecryptedKey(a, pass)
+	if err != nil {
+		return nil, nil, err
+	}
+	bytes1 := crypto.FromECDSA(key.PrivateKey)
+	bytes2 := crypto.FromECDSA(key.PrivateKey2)
+	return bytes1, bytes2, nil
+}
+
 //Get account's ASkey from keystore
 func (ks *KeyStore) GetABaddr(a accounts.Account) (string, error) {
 	ks.mu.RLock()

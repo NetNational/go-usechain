@@ -139,7 +139,38 @@ var (
 	}
 )
 
-//get unconfirmed address
+//GetRandomCommPubKey get a committee's public key from contract
+func GetRandomCommPubKey(self *state.StateDB, contractAddr common.Address) ([]byte, error) {
+	var keys []string
+
+	//committee's number is unconfirmed
+	var commCounts int64
+	
+	for i := int64(0); i < commCounts; i++ {
+		keyIndex1, _ := ExpandToIndex(CMMTTEEs, "", i)
+		commAddr := self.GetState(contractAddr, common.HexToHash(keyIndex1))
+		log.Info(fmt.Sprintf("committee's address:%v", hex.EncodeToString(commAddr[:])))
+		
+		keyIndex2, _ := ExpandToIndex(CommitteePublicKey, hex.EncodeToString(commAddr[:]), 0)
+		key := self.GetState(contractAddr, common.HexToHash(keyIndex2))
+		pubKey := hex.EncodeToString(key[:])
+		keys = append(keys, pubKey)
+	}
+	if len(keys) == 0 {
+		return nil, errors.New("committee's public key is empty in contract")
+	}
+
+	randomNum := rand.Intn(len(keys))
+	commPubKey := keys[randomNum]
+
+	keyBytes, err := hex.DecodeString(commPubKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return keyBytes, nil
+}
+
 func GetUnconfirmedAddrInterface(self *state.StateDB, contractAddr common.Address, addrLen int64) ([]byte, error) {
 	// generate a query index
 	keyIndex4, _ := ExpandToIndex(OneTimeAddrConfirmedLenIndex, "", 0)

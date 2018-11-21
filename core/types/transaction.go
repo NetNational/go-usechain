@@ -17,21 +17,22 @@
 package types
 
 import (
+	"bytes"
 	"container/heap"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"math/big"
+	"strings"
 	"sync/atomic"
-	"bytes"
+
 	"github.com/usechain/go-usechain/accounts/abi"
 	"github.com/usechain/go-usechain/common"
 	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/crypto"
-	"github.com/usechain/go-usechain/rlp"
-	"strings"
 	"github.com/usechain/go-usechain/log"
-	"encoding/hex"
+	"github.com/usechain/go-usechain/rlp"
 )
 
 //go:generate gencodec -type txdata -field-override txdataMarshaling -out gen_tx_json.go
@@ -204,7 +205,7 @@ func (tx *Transaction) To() *common.Address {
 func (tx *Transaction) IsMainAuthentication() bool {
 	//The authentication tx payload must longer than 36 bytes
 	//Added levelTag and address type
-	if len(tx.Data()) <= 4 + 32 * 30 {
+	if len(tx.Data()) <= 4+32*30 {
 		return false
 	}
 
@@ -225,7 +226,7 @@ func (tx *Transaction) IsMainAuthentication() bool {
 func (tx *Transaction) IsSubAuthentication() bool {
 	//The authentication tx payload must longer than 36 bytes
 	//Added levelTag and address type
-	if len(tx.Data()) <= 4 + 32 * 30 {
+	if len(tx.Data()) <= 4+32*30 {
 		return false
 	}
 
@@ -242,13 +243,22 @@ func (tx *Transaction) IsSubAuthentication() bool {
 	return true
 }
 
+func (tx *Transaction) IsRegisterTransaction() bool {
+	// if len(tx.Data()) <= 4+32*10 {
+	// 	return false
+	// }
+	if bytes.Compare(tx.Data()[:4], []byte{90, 9, 0, 123}) == 0 {
+		return true
+	}
+	return false
+}
 
 //Another authentication implementation write in state_trasanction.go
 //OTA transaction verify
 func (tx *Transaction) IsAuthentication() bool {
 	//The authentication tx payload must longer than 36 bytes
 	//Added levelTag and address type
-	if len(tx.Data()) <= 4 + 32 * 10{
+	if len(tx.Data()) <= 4+32*10 {
 		return false
 	}
 
@@ -265,6 +275,28 @@ func (tx *Transaction) IsAuthentication() bool {
 	return true
 }
 
+func (tx *Transaction) CheckCertLegality(_from common.Address) error {
+	creditABI, _ := abi.JSON(strings.NewReader(common.CreditABI))
+	method, exist := creditABI.Methods["register"]
+	if !exist {
+		log.Error("method not found:", "register")
+	}
+	InputDataInterface, err := method.Inputs.UnpackABI(tx.Data()[4:])
+	if err != nil {
+		log.Error("method.Inputs: ", err)
+	}
+	var inputData []string
+	for _, param := range InputDataInterface {
+		inputData = append(inputData, param.(string))
+	}
+	// pubKey := inputData[0]
+	// encWithUserPubKey := inputData[1]
+	// encWithCommPubKey := inputData[2]
+	userId := inputData[4]
+	cert, _ := hex.DecodeString(crypto.ReadUserCert())
+	err = crypto.CheckUserRegisterCert(cert, userId)
+	return err
+}
 
 //check the certificate signature if the transaction is authentication Tx
 //   MultiAB account authentication TX:
@@ -278,16 +310,16 @@ func (tx *Transaction) CheckCertificateSig(_from common.Address) error {
 
 	usechainABI, err := abi.JSON(strings.NewReader(common.UsechainABI))
 	if err != nil {
-		log.Error("parse usechainABI",err)
+		log.Error("parse usechainABI", err)
 	}
 
 	method, exist := usechainABI.Methods["storeOneTimeAddress"]
 	if !exist {
 		log.Error("method not found:", "storeOneTimeAddress")
 	}
-	InputDataInterface,err :=method.Inputs.UnpackABI(tx.Data()[4:])
-	if err !=nil {
-		fmt.Println("method.Inputs: ",err)
+	InputDataInterface, err := method.Inputs.UnpackABI(tx.Data()[4:])
+	if err != nil {
+		fmt.Println("method.Inputs: ", err)
 		return err
 	}
 
@@ -306,15 +338,14 @@ func (tx *Transaction) CheckCertificateSig(_from common.Address) error {
 		return errors.New("the pubkey & address doesn't match")
 	}
 
-	sig,_ := hex.DecodeString(sign)
+	sig, _ := hex.DecodeString(sign)
 	err = crypto.CheckUserCertStandard(ca, _from, sig)
-	if  err != nil {
+	if err != nil {
 		return errors.New("the CA cert is illegal")
 	}
 
 	return err
 }
-
 
 //get the authentication level, only for authentication Tx
 func (tx *Transaction) GetTxAuthenticationLevel() int {
@@ -595,4 +626,3 @@ func (m Message) Gas() uint64          { return m.gasLimit }
 func (m Message) Nonce() uint64        { return m.nonce }
 func (m Message) Data() []byte         { return m.data }
 func (m Message) CheckNonce() bool     { return m.checkNonce }
-

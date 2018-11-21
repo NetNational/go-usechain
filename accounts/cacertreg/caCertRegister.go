@@ -39,6 +39,17 @@ type caRegRespData struct {
 	IDKey string
 }
 
+type IDInformation struct {
+	UseID     string `json:"useid"`
+	Idtype    string `json:"idtype"`
+	Idnum     string `json:"idnum"`
+	Name      string `json:"name"`
+	Country   string `json:"country"`
+	Address   string `json:"address"`
+	Birthdate string `json:"birthdate"`
+	Sex       string `json:"sex"`
+}
+
 // fatalf formats a message to standard error and exits the program.
 // The message is also printed to standard output if standard error
 // is redirected to a different file.
@@ -60,8 +71,8 @@ func fatalf(format string, args ...interface{}) {
 }
 
 //CAVerify user register
-func CAVerify(id string, photos []string) (string, error) {
-	IDKey, err := UserAuthOperation(id, photos)
+func CAVerify(filePath string, photos []string) (string, error) {
+	IDKey, err := UserAuthOperation(filePath, photos)
 	if err != nil {
 		return "", err
 	}
@@ -69,16 +80,47 @@ func CAVerify(id string, photos []string) (string, error) {
 }
 
 //UserAuthOperation use userID and photo to register ca cert.
-func UserAuthOperation(id string, photo []string) (string, error) {
+func UserAuthOperation(filePath string, photo []string) (string, error) {
+	//read file
+	bytes, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return "", err
+	}
+	info := string(bytes)
 
-	IDKey, err := postVerifactionData(id, photo)
+	//remove spaces and newline symbol and transform to hash string
+	info = strings.Replace(info, " ", "", -1)
+	info = strings.Replace(info, "\n", "", -1)
+	info = strings.Replace(info, "\t", "", -1)
+
+	infoBytes := []byte(info)
+	var idInfo IDInformation
+	err = json.Unmarshal(infoBytes, &idInfo)
+	if err != nil {
+		return "", err
+	}
+
+	if idInfo.UseID == "" {
+		return "", errors.New("useid can not be empty")
+	}
+	if idInfo.Idtype == "" {
+		return "", errors.New("certType can not be empty")
+	}
+	if idInfo.Idnum == "" {
+		return "", errors.New("id number can not be empty")
+	}
+
+	//Use a spliced string of number and types as hash
+	hashBytes := []byte(idInfo.Idtype + "-" + idInfo.Idnum)
+	hashStr := crypto.Keccak256Hash(hashBytes).Hex()
+	IDKey, err := postVerifactionData(hashStr, idInfo.UseID, photo)
 	if err != nil {
 		log.Error("Failed to upload user info :", "err", err)
 		return "", err
 	}
 	return IDKey, nil
 }
-func postVerifactionData(userID string, filename []string) (string, error) {
+func postVerifactionData(infoHash, useID string, filename []string) (string, error) {
 	//Create form
 	buf := new(bytes.Buffer)
 	writer := multipart.NewWriter(buf)
@@ -92,7 +134,6 @@ func postVerifactionData(userID string, filename []string) (string, error) {
 			log.Error("Create form file failed,", "err", err)
 			return "", err
 		}
-		log.Info("v:", v)
 		if v == "" {
 			log.Error("photo path can not be empty")
 			return "", errors.New("photo path can not be empty")
@@ -109,11 +150,11 @@ func postVerifactionData(userID string, filename []string) (string, error) {
 
 	//add user data field
 	idField, err := writer.CreateFormField("data")
-	r := strings.NewReader(geneUserData(userID)) //only id and name for now
+	r := strings.NewReader(geneUserData(useID)) //only id and name for now
 	_, err = io.Copy(idField, r)
 
 	//add CSR field
-	idHex, err := geneKeyFromID(userID)
+	idHex, err := geneKeyFromID(infoHash)
 	if err != nil {
 		return "", err
 	}
@@ -176,12 +217,8 @@ func geneCSR(idHex string) string {
 	return csrBuf.String()
 }
 
-func geneKeyFromID(ID string) (string, error) {
-	if ID == "" {
-		log.Error("Could not use empty string as ID")
-		return "", errors.New("Could not use empty string as ID")
-	}
-	idHex := crypto.Keccak256Hash([]byte(ID)).Hex()
+func geneKeyFromID(infoHash string) (string, error) {
+	idHex := crypto.Keccak256Hash([]byte(infoHash)).Hex()
 	fmt.Printf("idHex: %v\n", idHex)
 	return idHex, nil
 }

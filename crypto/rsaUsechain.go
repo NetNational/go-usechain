@@ -33,10 +33,11 @@ import (
 
 	"crypto/ecdsa"
 	"crypto/x509/pkix"
-	"github.com/usechain/go-usechain/common"
-	"github.com/usechain/go-usechain/log"
 	"math/big"
 	"time"
+
+	"github.com/usechain/go-usechain/common"
+	"github.com/usechain/go-usechain/log"
 )
 
 // GenerateRSAKeypair generate RSA format public key and private key
@@ -115,7 +116,7 @@ func parsePublicKey(pemBytes []byte) (Unsigner, error) {
 	case "PUBLIC KEY":
 		rsaa, err := x509.ParsePKIXPublicKey(block.Bytes)
 		if err != nil {
-			log.Error("ParsePKIXPublicKey error: ",err)
+			log.Error("ParsePKIXPublicKey error: ", err)
 			return nil, err
 		}
 		rawkey = rsaa
@@ -332,7 +333,7 @@ func GenRCA(emailAddress string, isCA bool, caName string, privName string, pubN
 	pub := publicKey(priv)
 	rcaCert, err := x509.CreateCertificate(rand.Reader, &template, &template, pub, priv)
 	if err != nil {
-		log.Error("Failed to create certificate:", "err",err)
+		log.Error("Failed to create certificate:", "err", err)
 	}
 
 	BaseDir := DefaultDataDir()
@@ -404,6 +405,29 @@ func parseRcaRsa() (*x509.Certificate, error) {
 		return nil, err
 	}
 	return Cert, nil
+}
+
+func CheckUserRegisterCert(cert []byte, userId string) error {
+	rcaCert, err := parseRcaRsa()
+	if err != nil {
+		return err
+	}
+	certBlock, _ := pem.Decode(cert)
+	if certBlock == nil {
+		return errors.New("User's cert not found!")
+	}
+	userCert, err := x509.ParseCertificate(certBlock.Bytes)
+	if err != nil {
+		return err
+	}
+	err = userCert.CheckSignatureFrom(rcaCert)
+	if err != nil {
+		return err
+	}
+	if userCert.Subject.CommonName != userId {
+		err = errors.New("Not the right cert of this user")
+	}
+	return err
 }
 
 // CheckUserCert verify user certificate

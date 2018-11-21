@@ -21,9 +21,7 @@ func GetRandomString(length int) string {
 
 func TestCAVerify(t *testing.T) {
 	//two params is true,and there is only one file.
-	userID := GetRandomString(32)
-	fmt.Println("userID: ", userID)
-	IDKey, err := CAVerify(userID, []string{"./testdata/img1.jpg"})
+	IDKey, err := CAVerify("./testdata/infoFile.txt", []string{"./testdata/img1.jpg"})
 	if err != nil {
 		t.Errorf("error:%v", err)
 	} else {
@@ -33,7 +31,7 @@ func TestCAVerify(t *testing.T) {
 
 }
 
-func TestCAVerifyIDIsEmpty(t *testing.T) {
+func TestCAVerifyFileIsEmpty(t *testing.T) {
 	//id is empty but file path is true.
 	_, err := CAVerify("", []string{"./testdata/img1.jpg"})
 	fmt.Println("err: ", err)
@@ -42,10 +40,8 @@ func TestCAVerifyIDIsEmpty(t *testing.T) {
 	}
 }
 func TestCAVerifyTwoFile(t *testing.T) {
-	userID := GetRandomString(32)
-	fmt.Println("userID: ", userID)
 	//two params is true,more file.
-	IDKey, err := CAVerify(userID, []string{"./testdata/img1.jpg", "./testdata/img2.jpg"})
+	IDKey, err := CAVerify("./testdata/infoFile.txt", []string{"./testdata/img1.jpg", "./testdata/img2.jpg"})
 	if err != nil {
 		t.Errorf("error:%v", err)
 	}
@@ -61,9 +57,7 @@ func TestCAVerifyParamsIsEmpty(t *testing.T) {
 }
 
 func TestCAVerifyIfOneFileEmpty(t *testing.T) {
-	userID := GetRandomString(32)
-	fmt.Println("userID: ", userID)
-	_, err := CAVerify(userID, []string{"./testdata/img1.jpg", ""})
+	_, err := CAVerify("./testdata/infoFile.txt", []string{"./testdata/img1.jpg", ""})
 	fmt.Println("err: ", err)
 	if err == nil {
 		t.Errorf("two empty params test, error should not be nil")
@@ -71,9 +65,7 @@ func TestCAVerifyIfOneFileEmpty(t *testing.T) {
 }
 
 func TestCAVerifyPhotoIsEmpty(t *testing.T) {
-	userID := GetRandomString(32)
-	fmt.Println("userID: ", userID)
-	_, err := CAVerify(userID, []string{""})
+	_, err := CAVerify("./testdata/infoFile.txt", []string{""})
 	fmt.Println("err: ", err)
 	if err == nil {
 		t.Errorf("photo path is empty test, error should not be nil")
@@ -81,9 +73,7 @@ func TestCAVerifyPhotoIsEmpty(t *testing.T) {
 }
 
 func TestVerifyQuery(t *testing.T) {
-	userID := GetRandomString(32)
-	fmt.Println("userID: ", userID)
-	IDKey, err := CAVerify(userID, []string{"./testdata/img1.jpg", "./testdata/img1.jpg"})
+	IDKey, err := CAVerify("./testdata/infoFile.txt", []string{"./testdata/img1.jpg", "./testdata/img1.jpg"})
 	if err != nil {
 		t.Errorf("error:%v", err)
 	} else {
