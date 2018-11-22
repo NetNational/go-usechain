@@ -146,6 +146,42 @@ func (b *bridge) NewAccount(call otto.FunctionCall) (response otto.Value) {
 	}
 	return ret
 }
+func (b *bridge) NewMainAccount(call otto.FunctionCall) (response otto.Value) {
+	var (
+		password string
+		confirm  string
+		err      error
+	)
+	switch {
+	// No password was specified, prompt the user for it
+	case len(call.ArgumentList) == 0:
+		if password, err = b.prompter.PromptPassword("Passphrase: "); err != nil {
+			throwJSException(err.Error())
+		}
+		if confirm, err = b.prompter.PromptPassword("Repeat passphrase: "); err != nil {
+			log.Error("enter here,now is error?")
+			throwJSException(err.Error())
+		}
+		if password != confirm {
+			throwJSException("passphrases don't match!")
+		}
+
+	// A single string password was specified, use that
+	case len(call.ArgumentList) == 1 && call.Argument(0).IsString():
+		password, _ = call.Argument(0).ToString()
+
+	// Otherwise fail with some error
+	default:
+		throwJSException("expected 0 or 1 string argument")
+	}
+	// Password acquired, execute the call and return
+	ret, err := call.Otto.Call("jeth.newMainAccount", nil, password)
+	if err != nil {
+		log.Error("now i find the error!")
+		throwJSException(err.Error())
+	}
+	return ret
+}
 
 // NewABaccount is a wrapper around the personal.NewABaccount RPC method that uses a
 // non-echoing password prompt to acquire the passphrase and executes the original

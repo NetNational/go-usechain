@@ -511,6 +511,14 @@ func zeroKey(k *ecdsa.PrivateKey) {
 		b[i] = 0
 	}
 }
+func (ks *KeyStore) GetAprivBaddressByKey(key *Key) (common.ABaddress, *ecdsa.PrivateKey, error) {
+	ks.mu.RLock()
+	defer ks.mu.RUnlock()
+
+	AprivKey := key.PrivateKey
+	ret := GenerateBaseABaddress(&AprivKey.PublicKey)
+	return *ret, AprivKey, nil
+}
 
 // GetAprivBaddress get account's PublicKey combine with B(commitee publickey)
 func (ks *KeyStore) GetAprivBaddress(a accounts.Account) (common.ABaddress, *ecdsa.PrivateKey, error) {
@@ -554,9 +562,34 @@ func ECDSAPKCompression(p *ecdsa.PublicKey) []byte {
 	return b
 }
 
+//NewMainAccount generate main account
+func (ks *KeyStore) NewMainAccount(passphrase string) (accounts.Account, common.ABaddress, error) {
+	key, err := newKey(crand.Reader)
+	abBaseAddr, AprivKey, err := ks.GetAprivBaddressByKey(key)
+	if err != nil {
+		log.Error("unlock error:", "err", err)
+		return accounts.Account{}, common.ABaddress{}, err
+	} else if len(abBaseAddr) != common.ABaddressLength {
+		return accounts.Account{}, common.ABaddress{}, errors.New("ABaddressLength is not equal")
+	}
+
+	key, account, err := storeNewABKey(ks.storage, abBaseAddr, AprivKey, passphrase)
+	if err != nil {
+		log.Error("NewMainAccount err: ", "err", err)
+		return accounts.Account{}, common.ABaddress{}, err
+	}
+
+	ABaddress := key.ABaddress
+	// Add the account to the cache immediately rather
+	// than waiting for file system notifications to pick it up.
+	ks.cache.add(account)
+
+	ks.refreshWallets()
+	return account, ABaddress, nil
+}
+
 // NewABaccount generates a new key and stores it into the key directory, encrypting it with the passphrase.
 func (ks *KeyStore) NewABaccount(A accounts.Account, passphrase string) (accounts.Account, common.ABaddress, error) {
-
 	var abBaseAddr common.ABaddress
 	abBaseAddr, AprivKey, err := ks.GetAprivBaddress(A)
 
