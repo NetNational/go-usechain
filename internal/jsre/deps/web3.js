@@ -5692,8 +5692,8 @@ require=(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof requ
         var verify = new Method({
             name: 'verify',
             call: 'personal_verify',
-            params: 2,
-            inputFormatter: [null, null]
+            params: 1,
+            inputFormatter: [null]
         });
         var verifyQuery = new Method({
             name: 'verifyQuery',
@@ -13776,26 +13776,19 @@ require=(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof requ
                     params: 2,
                     inputFormatter: [null,formatters.inputDefaultBlockNumberFormatter]
                 });
-                
-                var uploadInfo = new Method({
-                    name: 'uploadInfo',
-                    call: 'use_uploadInfo',
-                    params: 4,
-                    inputFormatter: [null, null, formatters.inputTransactionFormatter, formatters.inputDefaultBlockNumberFormatter]
-                });
-    
-                var caAuthentication = new Method({
-                    name: 'caAuthentication',
-                    call: 'use_caAuthentication',
-                    params: 7,
-                    inputFormatter: [null, null, null, null, null, formatters.inputTransactionFormatter, formatters.inputDefaultBlockNumberFormatter]
-                });
     
                 var userAuthentication = new Method({
                     name: 'userAuthentication',
                     call: 'use_userAuthentication',
                     params: 8,
                     inputFormatter: [null, null, null, null, null, null, null, formatters.inputTransactionFormatter]
+                });
+
+                var sendCreditRegisterTransaction = new Method({
+                    name: 'sendCreditRegisterTransaction',
+                    call: 'use_sendCreditRegisterTransaction',
+                    params: 1,
+                    inputFormatter: [formatters.inputTransactionFormatter]
                 });
     
                 var sendOneTimeTransaction = new Method({
@@ -13844,9 +13837,8 @@ require=(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof requ
                     sendVerifyTransaction,
                     sendMainTransaction,
                     sendSubTransaction,
-                    uploadInfo,
-                    caAuthentication,
                     userAuthentication,
+                    sendCreditRegisterTransaction,
                     sendOneTimeTransaction,
                     getOneTimePubSet,
                     getUnConfirmedMainInfo,

@@ -404,13 +404,13 @@ func verify(ctx *cli.Context) error {
 	if len(file) > 0 && len(photo) > 0 {
 		fileName := strings.Split(photo, ";")
 
-		_, err := cacertreg.UserAuthOperation(file, fileName)
+		_, err := cacertreg.UserAuthOperation(false, file, fileName)
 		if err != nil {
 			log.Error("user info register failed:", "err", err)
 			return err
 		}
 	} else if len(q) > 0 {
-		err := cacertreg.Query(q)
+		err := cacertreg.VerifyQuery(q, "")
 		if err != nil {
 			log.Error("user info query failed:", "err", err)
 			return err

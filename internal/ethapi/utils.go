@@ -18,42 +18,27 @@ import (
 	"github.com/usechain/go-usechain/node"
 )
 
-const (
-	IDCard          = "01"
-	PassPort        = "02"
-	DriverCard      = "03"
-	SocialCard      = "04"
-	EducationCert   = "10"
-	ImmovablesCert  = "20"
-	DepositCert     = "21"
-	Car             = "22"
-	Stock           = "23"
-	Career          = "30"
-	Other           = "40"
-	BusinessLicense = "50"
-)
-
 //when user upload identity information first time, it will checks if information format is ok
 func checkInfoFormat(idInfo string) error {
-	var info cacertreg.IDInformation
-	err := json.Unmarshal([]byte(idInfo), &info)
+	infoMap := make(map[string]string)
+	err := json.Unmarshal([]byte(idInfo), &infoMap)
 	if err != nil {
 		return err
 	}
-	if info.Idtype == "" {
+	if infoMap["certtype"] == "" {
 		return idTypeEmptyError
 	}
-	if info.Idnum == "" || info.Name == "" || info.Sex == "" || info.Country == "" || info.Address == "" || info.Birthdate == "" {
+	if infoMap["name"] == "" || infoMap["country"] == "" || infoMap["address"] == "" || infoMap["id"] == "" || infoMap["birthdate"] == "" {
 		return infoMissingError
 	}
 	//=======================temporary code
-	if info.Idtype == IDCard || info.Idtype == SocialCard {
-		result := checkIDcardNum(info.Idnum)
+	if infoMap["certtype"] == cacertreg.IDCard || infoMap["certtype"] == cacertreg.SocialCard {
+		result := checkIDcardNum(infoMap["id"])
 		if !result {
 			return idNumNotValidateError
 		}
 	}
-	if info.Idtype == PassPort {
+	if infoMap["certtype"] == cacertreg.PassPort {
 
 	}
 	//=======================temporary code

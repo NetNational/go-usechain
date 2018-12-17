@@ -303,8 +303,8 @@ func (s *PrivateAccountAPI) DeriveAccount(url string, path string, pin *bool) (a
 }
 
 //Verify will register a user id and prints the infomation about this id after register.
-func (s *PrivateAccountAPI) Verify(filePath string, photos []string) (string, error) {
-	IDKey, err := cacertreg.CAVerify(filePath, photos)
+func (s *PrivateAccountAPI) Verify(photos []string) (string, error) {
+	IDKey, err := cacertreg.CAVerify(true, "", photos)
 	if err != nil {
 		return "", err
 	}
@@ -313,7 +313,8 @@ func (s *PrivateAccountAPI) Verify(filePath string, photos []string) (string, er
 
 //VerifyQuery supports user query their information after register.
 func (s *PrivateAccountAPI) VerifyQuery(id string) (bool, error) {
-	err := cacertreg.VerifyQuery(id)
+	chainID := fmt.Sprintf("%s", s.b.ChainConfig().ChainId)
+	err := cacertreg.VerifyQuery(id, chainID)
 	if err != nil {
 		return false, err
 	}
@@ -1655,6 +1656,9 @@ func (s *PublicTransactionPoolAPI) SendCreditRegisterTransaction(ctx context.Con
 	//public key
 	am := s.b.AccountManager()
 	pub, _ := fetchKeystore(am).GetPublicKey(account)
+	if pub == "" {
+		return common.Hash{}, errors.New("get public key failed")
+	}
 	userData := GetUserData()
 	encWithUserPubKey, _ := EncryptUserData(userData, crypto.ToECDSAPub(common.FromHex(pub)))
 	encWithCommPubKey, _ := EncryptUserData(userData, crypto.ToECDSAPub(common.FromHex(pub)))

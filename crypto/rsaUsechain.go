@@ -424,7 +424,7 @@ func CheckUserRegisterCert(cert []byte, userId string) error {
 	if err != nil {
 		return err
 	}
-	if userCert.Subject.CommonName != userId {
+	if userCert.Subject.CommonName[2:] != userId {
 		err = errors.New("Not the right cert of this user")
 	}
 	return err

@@ -36,19 +36,6 @@ func create() (*ManagedState, *account) {
 	return ms, ms.accounts[addr]
 }
 
-func TestConvert(t *testing.T) {
-	var tmp = common.BytesToHash([]byte("testtesttesttesttesttesttesttesttesttesttesttesttesttesttest"))
-	bytes := tmp.Bytes()
-	fmt.Println(string(bytes))
-	fmt.Println(tmp.Str())
-	src := []byte("testtesttesttesttesttesttesttesttesttesttesttesttesttesttest")
-	encodedStr := hex.EncodeToString(src)
-	fmt.Println(encodedStr)
-	result, _ := hex.DecodeString(encodedStr)
-	fmt.Println(string(result))
-	// fmt.Println(bytes.Compare([]byte("test"), result))
-}
-
 func TestNewNonce(t *testing.T) {
 	ms, _ := create()
 

@@ -49,33 +49,24 @@ func newBridge(client *rpc.Client, prompter UserPrompter, printer io.Writer) *br
 //Verify is  user register function
 func (b *bridge) Verify(call otto.FunctionCall) (response otto.Value) {
 	var (
-		filePath   string //personal information in local file, json format
 		photos []string
 		err    error
 	)
-	switch {
 
-	// A single string password was specified, use that
-	case call.Argument(0).IsString() && len(call.ArgumentList) > 1:
-		filePath, _ = call.Argument(0).ToString()
-		if len(filePath) == 0 {
-			throwJSException("personal information file should not be empty.")
-		}
-		for i := 1; i < len(call.ArgumentList); i++ {
-			if call.Argument(i).IsString() {
-				photo, _ := call.Argument(i).ToString()
-				photos = append(photos, photo)
-			} else {
-				throwJSException("filePath must be string type.")
-			}
-		}
-
-	// Otherwise fail with some error
-	default:
-		throwJSException("3 string argument at least")
+	if len(call.ArgumentList) == 0 {
+		throwJSException("1 string argument at least")
 	}
+	for i := 0; i < len(call.ArgumentList); i++ {
+		if call.Argument(i).IsString() {
+			photo, _ := call.Argument(i).ToString()
+			photos = append(photos, photo)
+		} else {
+			throwJSException("filePath must be string type.")
+		}
+	}
+
 	// Password acquired, execute the call and return
-	ret, err := call.Otto.Call("jeth.verify", nil, filePath, photos)
+	ret, err := call.Otto.Call("jeth.verify", nil, photos)
 	if err != nil {
 		throwJSException(err.Error())
 	}

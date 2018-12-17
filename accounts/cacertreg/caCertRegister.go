@@ -17,13 +17,30 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 
 	"github.com/bitly/go-simplejson"
+	"github.com/usechain/go-usechain/console"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/node"
+)
+
+const (
+	IDCard          = "01"
+	PassPort        = "02"
+	DriverCard      = "03"
+	SocialCard      = "04"
+	EducationCert   = "10"
+	ImmovablesCert  = "20"
+	DepositCert     = "21"
+	Car             = "22"
+	Stock           = "23"
+	Career          = "30"
+	Other           = "40"
+	BusinessLicense = "50"
 )
 
 //CARegResp indicates the response content when applying for a CA certificate.
@@ -37,17 +54,6 @@ type CARegResp struct {
 }
 type caRegRespData struct {
 	IDKey string
-}
-
-type IDInformation struct {
-	UseID     string `json:"useid"`
-	Idtype    string `json:"idtype"`
-	Idnum     string `json:"idnum"`
-	Name      string `json:"name"`
-	Country   string `json:"country"`
-	Address   string `json:"address"`
-	Birthdate string `json:"birthdate"`
-	Sex       string `json:"sex"`
 }
 
 // fatalf formats a message to standard error and exits the program.
@@ -70,9 +76,11 @@ func fatalf(format string, args ...interface{}) {
 	os.Exit(1)
 }
 
-//CAVerify user register
-func CAVerify(filePath string, photos []string) (string, error) {
-	IDKey, err := UserAuthOperation(filePath, photos)
+//CAVerify user register. If flag is true,it means register by console, else it's cmd.
+func CAVerify(flag bool, filePath string, photos []string) (string, error) {
+	UserInfoInteraction()
+
+	IDKey, err := UserAuthOperation(flag, filePath, photos)
 	if err != nil {
 		return "", err
 	}
@@ -80,47 +88,41 @@ func CAVerify(filePath string, photos []string) (string, error) {
 }
 
 //UserAuthOperation use userID and photo to register ca cert.
-func UserAuthOperation(filePath string, photo []string) (string, error) {
+func UserAuthOperation(flag bool, filePath string, photo []string) (string, error) {
 	//read file
-	bytes, err := ioutil.ReadFile(filePath)
+	var file string
+	if flag {
+		file = filepath.Join(node.DefaultDataDir(), "userData.json")
+	} else {
+		file = filePath
+	}
+	bytes, err := ioutil.ReadFile(file)
 	if err != nil {
 		return "", err
 	}
-	info := string(bytes)
-
-	//remove spaces and newline symbol and transform to hash string
-	info = strings.Replace(info, " ", "", -1)
-	info = strings.Replace(info, "\n", "", -1)
-	info = strings.Replace(info, "\t", "", -1)
-
-	infoBytes := []byte(info)
-	var idInfo IDInformation
-	err = json.Unmarshal(infoBytes, &idInfo)
+	infoMap := make(map[string]string)
+	err = json.Unmarshal(bytes, &infoMap)
 	if err != nil {
 		return "", err
 	}
 
-	if idInfo.UseID == "" {
+	if infoMap["id"] == "" {
 		return "", errors.New("useid can not be empty")
 	}
-	if idInfo.Idtype == "" {
+	if infoMap["certtype"] == "" {
 		return "", errors.New("certType can not be empty")
-	}
-	if idInfo.Idnum == "" {
-		return "", errors.New("id number can not be empty")
 	}
 
 	//Use a spliced string of number and types as hash
-	hashBytes := []byte(idInfo.Idtype + "-" + idInfo.Idnum)
-	hashStr := crypto.Keccak256Hash(hashBytes).Hex()
-	IDKey, err := postVerifactionData(hashStr, idInfo.UseID, photo)
+	combinationStr := infoMap["certtype"] + "-" + infoMap["id"]
+	IDKey, err := postVerifactionData(combinationStr, photo)
 	if err != nil {
 		log.Error("Failed to upload user info :", "err", err)
 		return "", err
 	}
 	return IDKey, nil
 }
-func postVerifactionData(infoHash, useID string, filename []string) (string, error) {
+func postVerifactionData(combinationStr string, filename []string) (string, error) {
 	//Create form
 	buf := new(bytes.Buffer)
 	writer := multipart.NewWriter(buf)
@@ -150,11 +152,11 @@ func postVerifactionData(infoHash, useID string, filename []string) (string, err
 
 	//add user data field
 	idField, err := writer.CreateFormField("data")
-	r := strings.NewReader(geneUserData(useID)) //only id and name for now
+	r := strings.NewReader(geneUserData(combinationStr)) //only id and name for now
 	_, err = io.Copy(idField, r)
 
 	//add CSR field
-	idHex, err := geneKeyFromID(infoHash)
+	idHex, err := geneKeyFromID(combinationStr)
 	if err != nil {
 		return "", err
 	}
@@ -179,7 +181,6 @@ func postVerifactionData(infoHash, useID string, filename []string) (string, err
 		return "", err
 	}
 	IDKey := regResp.Data.IDKey
-
 	return IDKey, nil
 }
 
@@ -271,25 +272,19 @@ func checkError(err error) {
 }
 
 //VerifyQuery after user registered, user can get query info and stores ca file.
-func VerifyQuery(idKey string) error {
-	err := Query(idKey)
-	if err != nil {
-		return err
+func VerifyQuery(idKey, chainID string) error {
+
+	if chainID != "" {
+		chainID += "_"
 	}
-
-	return nil
-}
-
-//Query use idkey as param to query user ca information.
-func Query(s string) error {
-
-	err := queryID(CAquery, s)
+	err := queryID(CAquery, idKey, chainID)
 	if err != nil {
 		return err
 	}
 	return nil
 }
-func queryID(CAserver string, idKey string) error {
+
+func queryID(CAserver string, idKey, chainID string) error {
 	u, _ := url.Parse(CAserver)
 	q := u.Query()
 	q.Add("idKey", idKey)
@@ -314,11 +309,81 @@ func queryID(CAserver string, idKey string) error {
 	}
 	cert := string(certBytes[:])
 
-	userCert := node.DefaultDataDir() + string(os.PathSeparator) + "user.crt"
+	userCert := filepath.Join(node.DefaultDataDir(), (chainID + idKey + ".crt"))
 	err = ioutil.WriteFile(userCert, []byte(cert), 0644)
 	checkError(err)
 	log.Info("CAbuf:", "CAbuf", CAbuf.String())
 	log.Info("Verification successful, your CA file stored in " + userCert)
 
 	return nil
+}
+
+//UserInfoInteraction when user enter console to register, user's information must be written to file.
+func UserInfoInteraction() {
+	fmt.Println("What kind of information do you want to verify?")
+	fmt.Println(IDCard + ".IDCard")
+	fmt.Println(PassPort + ".PassPort")
+	fmt.Println(DriverCard + ".DriverCard")
+	fmt.Println(SocialCard + ".SocialCard")
+	fmt.Println(EducationCert + ".EducationCert")
+	fmt.Println(ImmovablesCert + ".ImmovablesCert")
+	fmt.Println(DepositCert + ".DepositCert")
+	fmt.Println(Car + ".Car")
+	fmt.Println(Stock + ".Stock")
+	fmt.Println(Career + ".Career")
+	fmt.Println(BusinessLicense + ".BusinessLicense")
+	fmt.Println(Other + ".Other")
+	typeInput, err := console.Stdin.PromptInput("choose one:")
+	if err != nil {
+		fatalf("Failed to read type: %v", err)
+	}
+	fmt.Println("Please fill in the following information")
+	genInfoMap(typeInput)
+}
+
+func genInfoMap(typeInput string) {
+	infoMap := make(map[string]string)
+	switch typeInput {
+	case IDCard:
+		infoMap["certtype"] = IDCard
+		genIDCardInfo(infoMap)
+	case PassPort:
+
+	case DriverCard:
+
+	case SocialCard:
+
+	case EducationCert:
+
+	default:
+		fatalf("Information type is not exist")
+	}
+	storeFile(infoMap)
+}
+func getInput(attribute string) string {
+	attr, err := console.Stdin.PromptInput(attribute)
+	if err != nil {
+		fatalf("Failed to read "+attribute+": %v", err)
+	}
+	return attr
+}
+func genIDCardInfo(infoMap map[string]string) {
+	infoMap["name"] = getInput("name:")
+	infoMap["id"] = getInput("id:")
+	infoMap["country"] = getInput("country:")
+	infoMap["address"] = getInput("home address:")
+	infoMap["birthdate"] = getInput("birthday:")
+	infoMap["ename"] = getInput("ename(opt):")
+}
+func storeFile(infoMap map[string]string) {
+	infoBytes, err := json.Marshal(infoMap)
+	if err != nil {
+		fatalf("store information file failed: %v", err)
+	}
+	filePath := filepath.Join(node.DefaultDataDir(), "userData.json")
+	err = ioutil.WriteFile(filePath, infoBytes, 0644)
+	if err != nil {
+		fatalf("sotre information file failed: %v", err)
+	}
+	log.Info("user data file saved at " + filePath)
 }
