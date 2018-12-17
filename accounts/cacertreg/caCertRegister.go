@@ -19,7 +19,9 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bitly/go-simplejson"
 	"github.com/usechain/go-usechain/console"
@@ -55,6 +57,15 @@ type CARegResp struct {
 type caRegRespData struct {
 	IDKey string
 }
+
+var (
+	idInfoIncorrectError  = errors.New("the id information is incorrect")
+	certValidateError     = errors.New("the certificate is not issued by a CA")
+	idNumEmptyError       = errors.New("the id num is empty")
+	idTypeEmptyError      = errors.New("the id type should not by empty")
+	idNumNotValidateError = errors.New("the id num is not validate")
+	infoMissingError      = errors.New("some information is missing")
+)
 
 // fatalf formats a message to standard error and exits the program.
 // The message is also printed to standard output if standard error
@@ -106,11 +117,9 @@ func UserAuthOperation(flag bool, filePath string, photo []string) (string, erro
 		return "", err
 	}
 
-	if infoMap["id"] == "" {
-		return "", errors.New("useid can not be empty")
-	}
-	if infoMap["certtype"] == "" {
-		return "", errors.New("certType can not be empty")
+	err = CheckInfoFormat(infoMap)
+	if err != nil {
+		return "", err
 	}
 
 	//Use a spliced string of number and types as hash
@@ -316,6 +325,73 @@ func queryID(CAserver string, idKey, chainID string) error {
 	log.Info("Verification successful, your CA file stored in " + userCert)
 
 	return nil
+}
+
+//CheckInfoFormat when user upload identity information first time, it will checks if information format is ok
+func CheckInfoFormat(infoMap map[string]string) error {
+	if infoMap["certtype"] == "" {
+		return idTypeEmptyError
+	}
+	if infoMap["id"] == "" {
+		return idNumEmptyError
+	}
+
+	if infoMap["certtype"] == IDCard || infoMap["certtype"] == SocialCard {
+		result := checkIDcardNum(infoMap["id"])
+		if !result {
+			return idNumNotValidateError
+		}
+	}
+	if infoMap["certtype"] == PassPort {
+
+	}
+	return nil
+}
+
+//Verify that the ID number is valid
+func checkIDcardNum(num string) bool {
+	if len(num) != 18 {
+		return false
+	}
+	provinceCode := []string{"11", "12", "13", "14", "15", "21", "22",
+		"23", "31", "32", "33", "34", "35", "36", "37", "41", "42", "43",
+		"44", "45", "46", "50", "51", "52", "53", "54", "61", "62", "63",
+		"64", "65", "71", "81", "82", "91"}
+	province := num[:2]
+	for _, value := range provinceCode {
+		if value == province {
+			break
+		} else if value == "91" { //the lastNumber but nof find true code
+			return false
+		}
+	}
+	date := num[6:10] + "-" + num[10:12] + "-" + num[12:14] + " 00:00:00"
+	timeLayout := "2006-01-02 15:04:05" //time template
+	loc, _ := time.LoadLocation("Local")
+	_, err := time.ParseInLocation(timeLayout, date, loc)
+	if err != nil {
+		return false
+	}
+	//check validate code
+	power := []int{7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2}
+	refNumber := []string{"1", "0", "X", "9", "8", "7", "6", "5", "4", "3", "2"}
+	var result int
+	for index, value := range power {
+		tmp, err := strconv.Atoi(string(num[index]))
+		if err != nil {
+			return false
+		}
+		result += tmp * value
+	}
+	lastNum := num[17:]
+	if lastNum == "x" {
+		lastNum = "X"
+	}
+	if lastNum != refNumber[(result%11)] {
+		return false
+	}
+
+	return true
 }
 
 //UserInfoInteraction when user enter console to register, user's information must be written to file.

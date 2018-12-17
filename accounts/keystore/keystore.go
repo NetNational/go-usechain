@@ -565,15 +565,17 @@ func ECDSAPKCompression(p *ecdsa.PublicKey) []byte {
 //NewMainAccount generate main account
 func (ks *KeyStore) NewMainAccount(passphrase string) (accounts.Account, common.ABaddress, error) {
 	key, err := newKey(crand.Reader)
-	abBaseAddr, AprivKey, err := ks.GetAprivBaddressByKey(key)
+	AprivKey := key.PrivateKey
+	abBaseAddr := GenerateBaseABaddress(&AprivKey.PublicKey)
 	if err != nil {
 		log.Error("unlock error:", "err", err)
 		return accounts.Account{}, common.ABaddress{}, err
-	} else if len(abBaseAddr) != common.ABaddressLength {
+	}
+	if len(abBaseAddr) != common.ABaddressLength {
 		return accounts.Account{}, common.ABaddress{}, errors.New("ABaddressLength is not equal")
 	}
 
-	key, account, err := storeNewABKey(ks.storage, abBaseAddr, AprivKey, passphrase)
+	key, account, err := storeNewABKey(ks.storage, *abBaseAddr, AprivKey, passphrase)
 	if err != nil {
 		log.Error("NewMainAccount err: ", "err", err)
 		return accounts.Account{}, common.ABaddress{}, err
@@ -629,14 +631,13 @@ func (ks *KeyStore) GetPublicKey(a accounts.Account) (string, error) {
 }
 
 //GetPrivateKey get account's private key and random key from keystore
-func (ks *KeyStore) GetPrivateKey(a accounts.Account, pass string) ([]byte, []byte, error) {
+func (ks *KeyStore) GetPrivateKey(a accounts.Account, pass string) ([]byte, error) {
 	_, key, err := ks.getDecryptedKey(a, pass)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	bytes1 := crypto.FromECDSA(key.PrivateKey)
-	bytes2 := crypto.FromECDSA(key.PrivateKey2)
-	return bytes1, bytes2, nil
+	return bytes1, nil
 }
 
 //Get account's ASkey from keystore

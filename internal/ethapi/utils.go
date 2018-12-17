@@ -7,89 +7,13 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"path/filepath"
-	"strconv"
-	"time"
 
-	"github.com/usechain/go-usechain/accounts/cacertreg"
 	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/crypto/ecies"
 	"github.com/usechain/go-usechain/log"
 	"github.com/usechain/go-usechain/node"
 )
-
-//when user upload identity information first time, it will checks if information format is ok
-func checkInfoFormat(idInfo string) error {
-	infoMap := make(map[string]string)
-	err := json.Unmarshal([]byte(idInfo), &infoMap)
-	if err != nil {
-		return err
-	}
-	if infoMap["certtype"] == "" {
-		return idTypeEmptyError
-	}
-	if infoMap["name"] == "" || infoMap["country"] == "" || infoMap["address"] == "" || infoMap["id"] == "" || infoMap["birthdate"] == "" {
-		return infoMissingError
-	}
-	//=======================temporary code
-	if infoMap["certtype"] == cacertreg.IDCard || infoMap["certtype"] == cacertreg.SocialCard {
-		result := checkIDcardNum(infoMap["id"])
-		if !result {
-			return idNumNotValidateError
-		}
-	}
-	if infoMap["certtype"] == cacertreg.PassPort {
-
-	}
-	//=======================temporary code
-	return nil
-}
-
-//Verify that the ID number is valid
-func checkIDcardNum(num string) bool {
-	if len(num) != 18 {
-		return false
-	}
-	provinceCode := []string{"11", "12", "13", "14", "15", "21", "22",
-		"23", "31", "32", "33", "34", "35", "36", "37", "41", "42", "43",
-		"44", "45", "46", "50", "51", "52", "53", "54", "61", "62", "63",
-		"64", "65", "71", "81", "82", "91"}
-	province := num[:2]
-	for _, value := range provinceCode {
-		if value == province {
-			break
-		} else if value == "91" { //the lastNumber but nof find true code
-			return false
-		}
-	}
-	date := num[6:10] + "-" + num[10:12] + "-" + num[12:14] + " 00:00:00"
-	timeLayout := "2006-01-02 15:04:05" //time template
-	loc, _ := time.LoadLocation("Local")
-	_, err := time.ParseInLocation(timeLayout, date, loc)
-	if err != nil {
-		return false
-	}
-	//check validate code
-	power := []int{7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2}
-	refNumber := []string{"1", "0", "X", "9", "8", "7", "6", "5", "4", "3", "2"}
-	var result int
-	for index, value := range power {
-		tmp, err := strconv.Atoi(string(num[index]))
-		if err != nil {
-			return false
-		}
-		result += tmp * value
-	}
-	lastNum := num[17:]
-	if lastNum == "x" {
-		lastNum = "X"
-	}
-	if lastNum != refNumber[(result%11)] {
-		return false
-	}
-
-	return true
-}
 
 func EncryptUserData(userData []byte, pubKey *ecdsa.PublicKey) ([]byte, error) {
 	encrypted, err := ecies.Encrypt(rand.Reader, ecies.ImportECDSAPublic(pubKey), userData, nil, nil)

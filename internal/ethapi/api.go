@@ -1574,17 +1574,6 @@ func (s *PrivateAccountAPI) GenerateRSAKeypair() error {
 	return err
 }
 
-var (
-	idInfoIncorrectError  = errors.New("the id information is incorrect")
-	certValidateError     = errors.New("the certificate is not issued by a CA")
-	idNumEmptyError       = errors.New("the id num is empty")
-	idTypeEmptyError      = errors.New("the id type should not by empty")
-	idNumNotValidateError = errors.New("the id num is not validate")
-	infoMissingError      = errors.New("some information is missing")
-	encryptInfoEmptyError = errors.New("encryptData should not be empty")
-	infoHashEmptyError    = errors.New("info hash should not by empty")
-)
-
 //UserAuthentication user B get a verify request,use his private key to sign hash,send to contract.
 func (s *PublicTransactionPoolAPI) UserAuthentication(ctx context.Context, useID, hash string, args SendTxArgs, blockNr rpc.BlockNumber) (common.Hash, error) {
 	// Look up the wallet containing the requested signer
@@ -1625,11 +1614,8 @@ func (s *PublicTransactionPoolAPI) UserAuthentication(ctx context.Context, useID
 	*args.Data = hexutil.Bytes(bytesData)[:]
 	// Assemble the transaction and sign with the wallet
 	tx := args.toTransaction()
-	var chainID *big.Int
-	if config := s.b.ChainConfig(); config.IsEIP155(s.b.CurrentBlock().Number()) {
-		chainID = config.ChainId
-	}
-	signed, err := wallet.SignTx(account, tx, chainID)
+
+	signed, err := wallet.SignTx(account, tx, nil)
 	if err != nil {
 		return common.Hash{}, err
 	}
@@ -1876,12 +1862,7 @@ func (s *PublicTransactionPoolAPI) SendVerifyTransaction(ctx context.Context, ow
 	// Assemble the transaction and sign with the wallet
 	tx := args.toTransaction()
 
-	var chainID *big.Int
-	if config := s.b.ChainConfig(); config.IsEIP155(s.b.CurrentBlock().Number()) {
-		chainID = config.ChainId
-	}
-
-	signed, err := wallet.SignTx(account, tx, chainID)
+	signed, err := wallet.SignTx(account, tx, nil)
 
 	if err != nil {
 		return common.Hash{}, err

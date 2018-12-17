@@ -33,7 +33,6 @@ import (
 
 	"github.com/usechain/go-usechain/accounts"
 	"github.com/usechain/go-usechain/common"
-	"github.com/usechain/go-usechain/common/hexutil"
 	"github.com/usechain/go-usechain/crypto"
 	"github.com/usechain/go-usechain/crypto/ecies"
 
@@ -80,7 +79,7 @@ func TestEncryptDecrypt(t *testing.T) {
 	infoData := fmt.Sprintf("%x", tmpBytes)
 	fmt.Println(fmt.Sprintf("get encrypt result: %v", infoData))
 
-	pri, _, err := ks.GetPrivateKey(a1, pass)
+	pri, err := ks.GetPrivateKey(a1, pass)
 	if err != nil {
 		t.Error(err)
 	}
@@ -100,31 +99,6 @@ func TestEncryptDecrypt(t *testing.T) {
 	fmt.Println(fmt.Sprintf("get decrypt result: %v", string(plaintext)))
 }
 
-func TestEncryptRandKey(t *testing.T) {
-	dir, ks := tmpKeyStore(t, true)
-	defer os.RemoveAll(dir)
-
-	pass := "123456" // not used but required by API
-	a1, _, err := ks.NewMainAccount(pass)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, randomBytes, err := ks.GetPrivateKey(a1, pass)
-	if err != nil {
-		t.Error(err)
-	}
-	fmt.Println(fmt.Sprintf("randomBytes: %v", randomBytes))
-
-	BToBytes, _ := hexutil.Decode(B)
-	Bpub := crypto.ToECDSAPub(BToBytes)
-	publicKey := ecies.ImportECDSAPublic(Bpub)
-	ct, err := ecies.Encrypt(crand.Reader, publicKey, randomBytes, nil, nil)
-	if err != nil {
-		t.Error(err)
-	}
-	fmt.Println(hex.EncodeToString(ct))
-}
-
 func TestNewMainAccount(t *testing.T) {
 	dir, ks := tmpKeyStore(t, true)
 	defer os.RemoveAll(dir)
@@ -137,11 +111,10 @@ func TestNewMainAccount(t *testing.T) {
 	fmt.Println(fmt.Sprintf("account.url:  %v\n account.address:  %v", a1.URL, a1.Address.Hex()))
 	fmt.Println(fmt.Sprintf("abAddr:%v", abAddr))
 
-	privateBytes, randomBytes, err := ks.GetPrivateKey(a1, pass)
+	privateBytes, err := ks.GetPrivateKey(a1, pass)
 	if err != nil {
 		t.Error(err)
 	}
-	fmt.Println(fmt.Sprintf("randomBytes: %v", randomBytes))
 
 	fmt.Println(fmt.Sprintf("privateKeyBytes: %v", privateBytes))
 
